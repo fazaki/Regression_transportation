@@ -17,14 +17,13 @@ import seaborn as sns
 sns.set()
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import train_test_split
-#import statsmodels.formula.api as sm
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 
 ###############################################################################
 ## Reading Data ##
 ##################
-os.chdir(r'D:\notebooks\ESRI-Taxi')
+os.chdir(r'D:\Notebooks\ESRI-Taxi')
 fnames = os.listdir("data")
 
 dfs = []
@@ -89,8 +88,10 @@ def hst(df,col,n):
 df3 = df2.drop(['datetime'],axis = 1)
 df3 = df3[['PUloc','DOloc','year','month','day','day_part','dayofweek','week','Count']]
 df4 = df3.groupby(['PUloc','DOloc','year','month','day','day_part','dayofweek','week'])['Count'].sum().reset_index()
-df5 = df4.drop(['year'],axis = 1)
-df6 = df4.drop(['year','week'],axis = 1)
+df5 = df4.astype('int64')
+
+df6 = df4.drop(['year'],axis = 1)
+df7 = df4.drop(['year','week'],axis = 1)
 
 
 df10 = df4.groupby(['PUloc','DOloc']).size().reset_index(name='Count').sort_values('Count', ascending=False).head(10)
@@ -135,9 +136,9 @@ def run_regression_split(name,input_df):
         print 'DataSet: {0}\tModel: {1}\t# of trees = {4}\tR2 train = {2:.3f}\tR2 test = {3:.3f}'.format(name, str(model).split('(')[0], R2, R2_test, est)
 
 ###############################################################################
-run_regression_split('df4',df4)
-print "\n"
 run_regression_split('df5',df5)
+print "\n"
+run_regression_split('df6',df6)
 print "\n"
 ###############################################################################
 
@@ -174,22 +175,29 @@ def run_regression(name,input_df):
 
 ###############################################################################
 
-run_regression('df4',df4)
-print "\n"
 run_regression('df5',df5)
 print "\n"
-
+run_regression('df6',df6)
+print "\n"
 ###############################################################################
 ### Random forst Model ###
 ##########################
-X = df4.iloc[:,0:len(df4.columns)-1]
-Y = df4.iloc[:,-1]
+X = df5.iloc[:,0:-1]
+Y = df5.iloc[:,-1]
 Y = Y.values.reshape(len(X))
 
 model = RandomForestRegressor(n_estimators = 300, random_state = 0)
 model.fit(X,Y)
+
+
 R2 = model.score(X,Y)
-print 'Model: {0}\t\tR2 = {1:.4f}'.format(str(model).split('(')[0], R2)
+
+h = model.predict(X)
+
+## at this point Y and h should be arrays:
+mse = np.mean((Y - h)**2)
+
+print 'Model: {0}\t\tR2 = {1:.4f}\tmse = {2:.4f}'.format(str(model).split('(')[0], R2, mse)
 
 ###############################################################################
 ### PREDICTION ###
@@ -209,4 +217,16 @@ input_ = [(PUloc, DOloc ,year ,month ,day ,day_part ,dayofweek, week)]
 math.ceil(model.predict(input_)[0])
 
 ###############################################################################
-###############################################################################
+## Plotting the Actual Vs Predicted ##
+import pylab as pl
+
+
+h = model.predict(X)
+h = pd.DataFrame(h, columns=['Predicted'])
+y = pd.DataFrame(Y)
+
+pl.scatter(y, h)
+pl.plot(np.arange(0, 1000), np.arange(0, 1000), label="r^2=" + str(R2), c="r")
+pl.legend(loc="lower right")
+pl.title("RandomForest Regression with scikit-learn")
+pl.show()
